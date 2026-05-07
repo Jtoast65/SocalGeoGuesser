@@ -30,17 +30,6 @@ The script saves:
 - `artifacts/training_curve.png`
 - `artifacts/validation_confusion_matrix.csv`
 
-## Submission
-
-Gradescope only needs `predict.py` and the saved weights file. Put these in the top level of your zip:
-
-```text
-predict.py
-model_weights.pt
-model_utils.py
-```
-
-If you rename the weights file, update `MODEL_FILENAME` in `predict.py`.
 
 ## Notes
 
