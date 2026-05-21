@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SoCalGuessr | Computer Vision Project</title>
+  <meta name="description" content="A computer vision project that classifies Southern California Street View images by city using transfer learning and PyTorch.">
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --bg-soft: #fbf8f2;
+      --ink: #1e2430;
+      --muted: #5f6673;
+      --line: rgba(30, 36, 48, 0.12);
+      --card: rgba(255, 255, 255, 0.74);
+      --accent: #c65f3f;
+      --accent-deep: #8f3d25;
+      --accent-soft: #f1c6af;
+      --teal: #237a73;
+      --shadow: 0 18px 40px rgba(30, 36, 48, 0.1);
+      --radius: 24px;
+      --max: 1140px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(198, 95, 63, 0.14), transparent 28%),
+        radial-gradient(circle at 85% 18%, rgba(35, 122, 115, 0.18), transparent 24%),
+        linear-gradient(180deg, #f7f1e8 0%, #efe6d9 100%);
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page-shell {
+      width: min(calc(100% - 32px), var(--max));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 32px 0 24px;
+    }
+
+    .hero-panel {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.68)),
+        linear-gradient(120deg, rgba(198,95,63,0.12), rgba(35,122,115,0.08));
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .hero-panel::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -36px;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(198,95,63,0.22), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent-deep);
+      margin-bottom: 18px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: currentColor;
+      opacity: 0.65;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 28px;
+      align-items: end;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+
+    h1 {
+      font-size: clamp(2.6rem, 5vw, 4.8rem);
+      letter-spacing: -0.04em;
+      max-width: 11ch;
+    }
+
+    .hero-copy p {
+      margin: 18px 0 0;
+      max-width: 62ch;
+      font-size: 1.08rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .hero-stats {
+      display: grid;
+      gap: 14px;
+    }
+
+    .stat-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--card);
+      padding: 18px 18px 16px;
+      backdrop-filter: blur(14px);
+    }
+
+    .stat-label {
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: clamp(1.65rem, 3vw, 2.55rem);
+      color: var(--accent-deep);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.97rem;
+      line-height: 1.5;
+    }
+
+    main {
+      padding: 12px 0 56px;
+    }
+
+    section {
+      margin-top: 24px;
+    }
+
+    .section-block {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--bg-soft);
+      box-shadow: 0 10px 30px rgba(30, 36, 48, 0.06);
+      padding: 28px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .section-head p {
+      margin: 0;
+      max-width: 60ch;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    h2 {
+      font-size: clamp(1.6rem, 3vw, 2.35rem);
+      letter-spacing: -0.03em;
+    }
+
+    .grid-3,
+    .grid-2 {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: white;
+      padding: 18px;
+    }
+
+    .card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+    }
+
+    .card p,
+    .card li {
+      color: var(--muted);
+      line-height: 1.65;
+      margin: 0;
+    }
+
+    .card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .process-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .process-step {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: 16px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      background: white;
+    }
+
+    .process-num {
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--accent-soft), #fff0e8);
+      color: var(--accent-deep);
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .process-step p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .results-banner {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .result-spotlight {
+      border-radius: 24px;
+      padding: 22px;
+      color: white;
+      background: linear-gradient(135deg, #203042, #2a6d67 70%, #6fa39f);
+      box-shadow: var(--shadow);
+    }
+
+    .result-spotlight .big {
+      font-size: clamp(2.8rem, 5vw, 4.6rem);
+      line-height: 0.95;
+      margin: 10px 0;
+      letter-spacing: -0.05em;
+    }
+
+    .result-spotlight p {
+      margin: 0;
+      max-width: 28ch;
+      color: rgba(255,255,255,0.82);
+      line-height: 1.6;
+    }
+
+    .viz-card {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: white;
+      padding: 18px;
+    }
+
+    .viz-frame {
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid rgba(30, 36, 48, 0.1);
+      background: linear-gradient(180deg, #fff, #f7f4ef);
+    }
+
+    .viz-frame img {
+      width: 100%;
+      height: auto;
+    }
+
+    .viz-caption {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.55;
+    }
+
+    .stack-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .stack-pill {
+      border: 1px solid rgba(35, 122, 115, 0.18);
+      border-radius: 999px;
+      background: rgba(35, 122, 115, 0.08);
+      padding: 10px 14px;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      font-size: 0.92rem;
+      color: #214b48;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      padding: 16px 18px;
+      border: 1px dashed rgba(30, 36, 48, 0.18);
+      border-radius: 18px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.45);
+      line-height: 1.65;
+    }
+
+    @media (max-width: 940px) {
+      .hero-grid,
+      .results-banner,
+      .grid-3,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: block;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero-panel,
+      .section-block {
+        padding: 20px;
+      }
+
+      .process-step {
+        grid-template-columns: 1fr;
+      }
+
+      .process-num {
+        width: 52px;
+        height: 52px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-panel">
+        <div class="eyebrow">Computer Vision Case Study</div>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <h1>SoCalGuessr</h1>
+            <p>
+              A machine learning project that predicts which Southern California city a Street View
+              image came from using transfer learning, PyTorch, and a compact production-friendly
+              inference pipeline.
+            </p>
+            <p>
+              The project focuses on turning a noisy real-world image classification task into a
+              deployable model that balances accuracy, file-size constraints, and inference speed.
+            </p>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-card">
+              <div class="stat-label">Final Validation Pipeline</div>
+              <div class="stat-value">73.33%</div>
+              <p class="stat-note">Best measured validation accuracy using multi-view test-time augmentation.</p>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Model Footprint</div>
+              <div class="stat-value">5.9 MB</div>
+              <p class="stat-note">Compact checkpoint designed to fit the project’s 50 MB submission limit.</p>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Classes Predicted</div>
+              <div class="stat-value">6 Cities</div>
+              <p class="stat-note">Anaheim, Bakersfield, Los Angeles, Riverside, SLO, and San Diego.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <div class="section-block">
+          <div class="section-head">
+            <h2>Project Overview</h2>
+            <p>
+              The goal was to build a neural network that could look at a Google Street View-style
+              image and predict the correct Southern California city. The challenge was not only
+              classification accuracy, but also packaging the solution into a lightweight inference
+              workflow suitable for automated grading and constrained deployment.
+            </p>
+          </div>
+          <div class="grid-3">
+            <article class="card">
+              <h3>Problem</h3>
+              <p>
+                Distinguish between visually similar urban and suburban environments using subtle
+                cues like road layout, vegetation, lighting, signage, and overall streetscape
+                texture.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Approach</h3>
+              <p>
+                Use transfer learning with MobileNetV3-Small, then improve prediction quality with
+                multi-view inference instead of relying only on a single resized image.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Outcome</h3>
+              <p>
+                Produce a compact model and inference pipeline that is accurate enough to be
+                competitive while remaining small, fast, and practical to ship.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-block">
+          <div class="section-head">
+            <h2>How It Works</h2>
+            <p>
+              The final system combines a pretrained visual backbone with a custom classifier head
+              and a stronger inference routine that averages predictions across multiple views of the
+              same panorama.
+            </p>
+          </div>
+          <div class="process-list">
+            <article class="process-step">
+              <div class="process-num">01</div>
+              <div>
+                <h3>Transfer Learning</h3>
+                <p>
+                  Start from an ImageNet-pretrained MobileNetV3-Small backbone instead of training
+                  from scratch. This gave the model a strong visual prior and made learning more
+                  efficient on a relatively small custom dataset.
+                </p>
+              </div>
+            </article>
+            <article class="process-step">
+              <div class="process-num">02</div>
+              <div>
+                <h3>Panoramic Input Strategy</h3>
+                <p>
+                  Resize images to <code>224 × 384</code> to preserve the wide Street View framing,
+                  which retains more geographic context than forcing the images into a square crop.
+                </p>
+              </div>
+            </article>
+            <article class="process-step">
+              <div class="process-num">03</div>
+              <div>
+                <h3>Compact Classifier Head</h3>
+                <p>
+                  Feed the pooled backbone features into a lightweight head with one hidden layer of
+                  <code>1024</code> units, <code>Hardswish</code> activation, dropout, and a final
+                  six-class output layer.
+                </p>
+              </div>
+            </article>
+            <article class="process-step">
+              <div class="process-num">04</div>
+              <div>
+                <h3>Multi-View Inference</h3>
+                <p>
+                  At prediction time, average logits across six views of each image: the base image,
+                  a horizontal flip, left crop, flipped left crop, right crop, and flipped right
+                  crop. This made the final prediction more stable and improved validation accuracy.
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-block">
+          <div class="section-head">
+            <h2>Model Details</h2>
+            <p>
+              The final architecture was chosen as a deliberate tradeoff: strong enough to learn
+              useful spatial cues, but small enough to fit strict packaging constraints.
+            </p>
+          </div>
+          <div class="grid-2">
+            <article class="card">
+              <h3>Architecture Snapshot</h3>
+              <ul>
+                <li>Backbone: <code>MobileNetV3-Small</code></li>
+                <li>Hidden layers in classifier head: <code>1</code></li>
+                <li>Units in hidden layer: <code>1024</code></li>
+                <li>Total parameters: <code>1,524,006</code></li>
+                <li>Output classes: <code>6</code></li>
+              </ul>
+            </article>
+            <article class="card">
+              <h3>Training Setup</h3>
+              <ul>
+                <li>Optimizer: <code>AdamW</code></li>
+                <li>Loss: <code>CrossEntropyLoss</code> with label smoothing <code>0.05</code></li>
+                <li>Epochs for final checkpoint: <code>3</code></li>
+                <li>Batch size: <code>128</code></li>
+                <li>Training time: about <code>2.75 minutes</code> for the saved run</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-block">
+          <div class="section-head">
+            <h2>Results</h2>
+            <p>
+              The strongest measured pipeline used the saved MobileNet checkpoint together with
+              multi-view test-time augmentation. A heavier EfficientNet experiment was explored but
+              ultimately rejected because it validated worse while also increasing compute cost.
+            </p>
+          </div>
+          <div class="results-banner">
+            <div class="result-spotlight">
+              <div class="stat-label" style="color: rgba(255,255,255,0.68);">Best Measured Validation Accuracy</div>
+              <div class="big">73.33%</div>
+              <p>
+                Achieved by combining the best MobileNetV3-Small checkpoint with six-view inference
+                rather than relying on a single forward pass per image.
+              </p>
+            </div>
+            <div class="viz-card">
+              <div class="viz-frame">
+                <img src="artifacts_pretrained_probe/training_curve.png" alt="Training curve showing empirical risk across epochs">
+              </div>
+              <p class="viz-caption">
+                Training curve from the final saved checkpoint. The model’s empirical risk decreased
+                over training while validation accuracy improved from 54.60% to 72.84%, before the
+                inference-side improvements pushed the final validation pipeline to 73.33%.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-block">
+          <div class="section-head">
+            <h2>What This Demonstrates</h2>
+            <p>
+              For recruiters and hiring teams, this project is a good example of practical machine
+              learning work: not just fitting a model, but making design choices around constraints,
+              experimentation, and deployment.
+            </p>
+          </div>
+          <div class="grid-3">
+            <article class="card">
+              <h3>ML Engineering</h3>
+              <p>
+                I built a training pipeline, checkpoint workflow, and inference script that can run
+                in a constrained environment without depending on training-time code.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Experimentation</h3>
+              <p>
+                I compared architectures, tuned the inference path, and selected the final approach
+                based on measured validation performance rather than model size alone.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Product Thinking</h3>
+              <p>
+                I optimized for the full problem: predictive quality, inference reliability, file
+                size limits, and a final artifact that could actually be deployed and reviewed.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-block">
+          <div class="section-head">
+            <h2>Tools Used</h2>
+            <p>
+              The project was implemented in Python and PyTorch, with torchvision for transfer
+              learning and image transforms, plus scikit-learn utilities for evaluation workflow.
+            </p>
+          </div>
+          <div class="stack-list">
+            <span class="stack-pill">Python</span>
+            <span class="stack-pill">PyTorch</span>
+            <span class="stack-pill">torchvision</span>
+            <span class="stack-pill">scikit-learn</span>
+            <span class="stack-pill">Transfer Learning</span>
+            <span class="stack-pill">Computer Vision</span>
+            <span class="stack-pill">GitHub Pages</span>
+          </div>
+          <div class="footer-note">
+            To deploy this page with GitHub Pages, commit this <code>index.html</code> file to the
+            root of your repository and enable Pages in the repository settings. Because the page
+            references <code>artifacts_pretrained_probe/training_curve.png</code>, make sure that
+            image is committed too.
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
